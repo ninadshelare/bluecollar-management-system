@@ -1,0 +1,1 @@
+# bluecollar-management-system
