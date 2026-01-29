@@ -1,5 +1,7 @@
 package com.bluecollar.management.controller;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.*;
 
 import com.bluecollar.management.dto.WorkRequestResponseDTO;
@@ -38,5 +40,12 @@ public class WorkRequestController {
             @RequestParam(required = false) Double hoursWorked) {
 
         return workRequestService.completeWorkRequest(requestId, hoursWorked);
+    }
+
+    @GetMapping("/worker/{workerId}")
+    public List<WorkRequestResponseDTO> getWorkerRequests(
+            @PathVariable Long workerId) {
+
+        return workRequestService.getRequestsForWorker(workerId);
     }
 }
