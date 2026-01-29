@@ -3,6 +3,7 @@ package com.bluecollar.management.controller;
 import com.bluecollar.management.dto.LoginRequest;
 import com.bluecollar.management.dto.LoginResponse;
 import com.bluecollar.management.dto.RegisterRequest;
+import com.bluecollar.management.entity.User;
 import com.bluecollar.management.service.UserService;
 
 import org.springframework.http.ResponseEntity;
@@ -27,14 +28,15 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
 
-        boolean success = userService.login(request);
+        User user = userService.login(request);
 
-        if (!success) {
-            return ResponseEntity
-                    .status(401)
-                    .body(new LoginResponse("Invalid credentials"));
-        }
+        LoginResponse response = new LoginResponse();
+        response.setUserId(user.getId());
+        response.setName(user.getName());
+        response.setEmail(user.getEmail());
+        response.setRole(user.getRole().name());
+        response.setMessage("Login successful");
 
-        return ResponseEntity.ok(new LoginResponse("Login successful"));
+        return ResponseEntity.ok(response);
     }
 }

@@ -1,13 +1,18 @@
 package com.bluecollar.management.dto;
 
 import lombok.Getter;
+import lombok.Setter;
 
 @Getter
+@Setter
 public class LoginResponse {
 
-    private final String message;
+    private Long userId;
+    private String name;
+    private String email;
+    private String role;
+    private String message;
 
-    public LoginResponse(String message) {
-        this.message = message;
-    }
+    // getters & setters
 }
+
