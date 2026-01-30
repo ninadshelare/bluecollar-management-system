@@ -27,10 +27,18 @@ public class WorkerSearchService {
             Double minRating
     ) {
 
+        // ✅ SAFE DEFAULTS (THIS FIXES 400 ERROR)
+        if (maxPrice == null) {
+            maxPrice = Double.MAX_VALUE;
+        }
+        if (minRating == null) {
+            minRating = 0.0;
+        }
+
         List<Worker> workers = workerRepository.searchWorkers(
                 service,
-                true,
-                pricingType,
+                true,           // only available workers
+                pricingType,    // nullable
                 maxPrice,
                 minRating
         );

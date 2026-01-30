@@ -12,7 +12,6 @@ import com.bluecollar.management.entity.enums.PricingType;
 
 public interface WorkerRepository extends JpaRepository<Worker, Long> {
 
-    
     @Query("""
         SELECT DISTINCT w
         FROM Worker w
@@ -20,9 +19,9 @@ public interface WorkerRepository extends JpaRepository<Worker, Long> {
         JOIN w.pricingList p
         WHERE sc.name = :service
           AND w.available = :available
-          AND p.pricingType = :pricingType
-          AND p.price <= :maxPrice
-          AND w.rating >= :minRating
+          AND (:pricingType IS NULL OR p.pricingType = :pricingType)
+          AND (:maxPrice IS NULL OR p.price <= :maxPrice)
+          AND (:minRating IS NULL OR w.rating >= :minRating)
     """)
     List<Worker> searchWorkers(
             @Param("service") String service,
@@ -32,7 +31,7 @@ public interface WorkerRepository extends JpaRepository<Worker, Long> {
             @Param("minRating") Double minRating
     );
 
-    
+    // Optional legacy methods (safe to keep)
     List<Worker> findByServiceCategory(ServiceCategory serviceCategory);
 
     List<Worker> findByServiceCategoryAndAvailableTrue(ServiceCategory serviceCategory);
