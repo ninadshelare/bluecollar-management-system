@@ -21,9 +21,15 @@ public class WorkerSearchController {
     @GetMapping("/search")
     public List<WorkerSearchResponseDTO> searchWorkers(
             @RequestParam String service,
-            @RequestParam PricingType pricingType,
-            @RequestParam Double maxPrice,
-            @RequestParam Double minRating
+
+            @RequestParam(required = false)
+            PricingType pricingType,
+
+            @RequestParam(required = false)
+            Double maxPrice,
+
+            @RequestParam(required = false)
+            Double minRating
     ) {
         return workerSearchService.searchWorkers(
                 service,
