@@ -1,6 +1,8 @@
 package com.bluecollar.management.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -174,5 +176,16 @@ public class WorkRequestService {
         dto.setCreatedAt(payment.getCreatedAt());
 
         return dto;
+    }
+    
+    public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
+
+        Worker worker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new RuntimeException("Worker not found"));
+
+        return workRequestRepository.findByWorker(worker)
+                .stream()
+                .map(this::mapToWorkRequestDTO)
+                .collect(Collectors.toList());
     }
 }

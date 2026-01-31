@@ -24,6 +24,16 @@ public class WorkerService {
             Boolean available,
             Double minRating
     ) {
+
+        // ✅ Defensive defaults (VERY IMPORTANT)
+        if (available == null) {
+            available = true;
+        }
+
+        if (minRating == null) {
+            minRating = 0.0;
+        }
+
         return workerRepository.searchWorkers(
                 service,
                 available,
