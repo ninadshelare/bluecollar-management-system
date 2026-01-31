@@ -1,7 +1,5 @@
 package com.bluecollar.management.controller;
 
-import java.util.List;
-
 import org.springframework.web.bind.annotation.*;
 
 import com.bluecollar.management.dto.WorkerProfileRequestDTO;
@@ -20,7 +18,7 @@ public class WorkerController {
 
     @PostMapping("/profile")
     public WorkerSearchResponseDTO createProfile(
-            @RequestParam Long userId, // TEMP until JWT
+            @RequestParam Long userId,   // TEMP until JWT
             @RequestBody WorkerProfileRequestDTO request) {
 
         return workerProfileService.createProfile(userId, request);
