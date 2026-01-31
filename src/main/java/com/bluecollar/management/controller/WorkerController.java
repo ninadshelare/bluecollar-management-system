@@ -38,4 +38,12 @@ public class WorkerController {
         workerProfileService.deleteProfile(workerId);
         return "Worker profile deleted successfully";
     }
+    
+    @GetMapping("/profile/by-user/{userId}")
+    public WorkerSearchResponseDTO getProfileByUser(
+            @PathVariable Long userId) {
+
+        return workerProfileService.getProfileByUserId(userId);
+    }
+
 }
