@@ -82,15 +82,10 @@ public class WorkerProfileService {
         worker.setExperienceYears(request.getExperienceYears());
         workerRepository.save(worker);
 
-        // ✅ SAFE pricing update
-        WorkerPricing pricing;
-
-        if (worker.getPricingList() != null && !worker.getPricingList().isEmpty()) {
-            pricing = worker.getPricingList().get(0); // update existing
-        } else {
-            pricing = new WorkerPricing();           // create new
-            pricing.setWorker(worker);
-        }
+        // ✅ ALWAYS fetch existing pricing from DB
+        WorkerPricing pricing = workerPricingRepository
+                .findByWorker(worker)
+                .orElseThrow(() -> new RuntimeException("Pricing not found"));
 
         pricing.setPricingType(request.getPricingType());
         pricing.setPrice(request.getPrice());
@@ -99,6 +94,7 @@ public class WorkerProfileService {
 
         return mapToSearchDTO(worker, pricing);
     }
+
 
     // ================= DELETE PROFILE =================
     @Transactional
