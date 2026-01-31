@@ -64,7 +64,7 @@ public class WorkerProfileService {
         return mapToSearchDTO(worker, pricing);
     }
 
-    // ================= UPDATE PROFILE =================
+    // ================= UPDATE PROFILE (FIXED) =================
     @Transactional
     public WorkerSearchResponseDTO updateProfile(
             Long workerId,
@@ -77,15 +77,24 @@ public class WorkerProfileService {
                 .findByName(request.getServiceName())
                 .orElseThrow(() -> new RuntimeException("Service not found"));
 
+        // update worker fields
         worker.setServiceCategory(service);
         worker.setExperienceYears(request.getExperienceYears());
-
         workerRepository.save(worker);
 
-        // remove old pricing
-        workerPricingRepository.deleteByWorker(worker);
+        // ✅ SAFE pricing update
+        WorkerPricing pricing;
 
-        WorkerPricing pricing = buildPricing(worker, request);
+        if (worker.getPricingList() != null && !worker.getPricingList().isEmpty()) {
+            pricing = worker.getPricingList().get(0); // update existing
+        } else {
+            pricing = new WorkerPricing();           // create new
+            pricing.setWorker(worker);
+        }
+
+        pricing.setPricingType(request.getPricingType());
+        pricing.setPrice(request.getPrice());
+
         workerPricingRepository.save(pricing);
 
         return mapToSearchDTO(worker, pricing);
@@ -99,6 +108,27 @@ public class WorkerProfileService {
                 .orElseThrow(() -> new RuntimeException("Worker not found"));
 
         workerRepository.delete(worker);
+    }
+
+    // ================= GET PROFILE BY USER =================
+    public WorkerSearchResponseDTO getProfileByUserId(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != Role.WORKER) {
+            throw new RuntimeException("User is not a WORKER");
+        }
+
+        Worker worker = workerRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Worker profile not found"));
+
+        WorkerPricing pricing = worker.getPricingList()
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Pricing not found"));
+
+        return mapToSearchDTO(worker, pricing);
     }
 
     // ================= HELPER METHODS =================
@@ -151,25 +181,4 @@ public class WorkerProfileService {
         dto.setPricing(List.of(p));
         return dto;
     }
-    
-    public WorkerSearchResponseDTO getProfileByUserId(Long userId) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (user.getRole() != Role.WORKER) {
-            throw new RuntimeException("User is not a WORKER");
-        }
-
-        Worker worker = workerRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Worker profile not found"));
-
-        WorkerPricing pricing = worker.getPricingList()
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Pricing not found"));
-
-        return mapToSearchDTO(worker, pricing);
-    }
-
 }
