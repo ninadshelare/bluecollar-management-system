@@ -7,7 +7,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "customer")
 public class Customer {
@@ -20,6 +24,14 @@ public class Customer {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    private String address;
+    private String phone;
+    private String addressLine1;
+    private String addressLine2;
+    private String city;
+    private String state;
+    private String pincode;
+
+    // getters & setters
 }
+
 

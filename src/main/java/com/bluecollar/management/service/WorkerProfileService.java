@@ -151,4 +151,25 @@ public class WorkerProfileService {
         dto.setPricing(List.of(p));
         return dto;
     }
+    
+    public WorkerSearchResponseDTO getProfileByUserId(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != Role.WORKER) {
+            throw new RuntimeException("User is not a WORKER");
+        }
+
+        Worker worker = workerRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Worker profile not found"));
+
+        WorkerPricing pricing = worker.getPricingList()
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Pricing not found"));
+
+        return mapToSearchDTO(worker, pricing);
+    }
+
 }
