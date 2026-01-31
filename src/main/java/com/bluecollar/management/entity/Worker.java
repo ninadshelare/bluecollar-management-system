@@ -22,7 +22,7 @@ public class Worker {
     @JoinColumn(name = "service_id")
     private ServiceCategory serviceCategory;
 
-    @OneToMany(mappedBy = "worker", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "worker", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WorkerPricing> pricingList;
 
     // ---------------- FIELDS ----------------
