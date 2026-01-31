@@ -38,8 +38,9 @@ public class WorkerProfileService {
         this.workerPricingRepository = workerPricingRepository;
     }
 
+    // ================= CREATE PROFILE =================
     @Transactional
-    public WorkerSearchResponseDTO createOrUpdateProfile(
+    public WorkerSearchResponseDTO createProfile(
             Long userId,
             WorkerProfileRequestDTO request) {
 
@@ -50,30 +51,85 @@ public class WorkerProfileService {
             throw new RuntimeException("Only WORKER can create profile");
         }
 
+        if (workerRepository.findByUser(user).isPresent()) {
+            throw new RuntimeException("Worker profile already exists");
+        }
+
+        Worker worker = buildWorkerFromRequest(user, request);
+        worker = workerRepository.save(worker);
+
+        WorkerPricing pricing = buildPricing(worker, request);
+        workerPricingRepository.save(pricing);
+
+        return mapToSearchDTO(worker, pricing);
+    }
+
+    // ================= UPDATE PROFILE =================
+    @Transactional
+    public WorkerSearchResponseDTO updateProfile(
+            Long workerId,
+            WorkerProfileRequestDTO request) {
+
+        Worker worker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new RuntimeException("Worker not found"));
+
         ServiceCategory service = serviceCategoryRepository
                 .findByName(request.getServiceName())
                 .orElseThrow(() -> new RuntimeException("Service not found"));
 
-        Worker worker = workerRepository.findByUser(user)
-                .orElse(new Worker());
+        worker.setServiceCategory(service);
+        worker.setExperienceYears(request.getExperienceYears());
 
+        workerRepository.save(worker);
+
+        // remove old pricing
+        workerPricingRepository.deleteByWorker(worker);
+
+        WorkerPricing pricing = buildPricing(worker, request);
+        workerPricingRepository.save(pricing);
+
+        return mapToSearchDTO(worker, pricing);
+    }
+
+    // ================= DELETE PROFILE =================
+    @Transactional
+    public void deleteProfile(Long workerId) {
+
+        Worker worker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new RuntimeException("Worker not found"));
+
+        workerRepository.delete(worker);
+    }
+
+    // ================= HELPER METHODS =================
+
+    private Worker buildWorkerFromRequest(
+            User user,
+            WorkerProfileRequestDTO request) {
+
+        ServiceCategory service = serviceCategoryRepository
+                .findByName(request.getServiceName())
+                .orElseThrow(() -> new RuntimeException("Service not found"));
+
+        Worker worker = new Worker();
         worker.setUser(user);
         worker.setServiceCategory(service);
         worker.setExperienceYears(request.getExperienceYears());
         worker.setAvailable(true);
+        worker.setRating(0.0);
 
-        worker = workerRepository.save(worker);
+        return worker;
+    }
 
-        workerPricingRepository.deleteByWorker(worker);
+    private WorkerPricing buildPricing(
+            Worker worker,
+            WorkerProfileRequestDTO request) {
 
         WorkerPricing pricing = new WorkerPricing();
         pricing.setWorker(worker);
         pricing.setPricingType(request.getPricingType());
         pricing.setPrice(request.getPrice());
-
-        workerPricingRepository.save(pricing);
-
-        return mapToSearchDTO(worker, pricing);
+        return pricing;
     }
 
     private WorkerSearchResponseDTO mapToSearchDTO(

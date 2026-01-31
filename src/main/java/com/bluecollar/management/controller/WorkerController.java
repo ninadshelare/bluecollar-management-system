@@ -1,7 +1,5 @@
 package com.bluecollar.management.controller;
 
-import java.util.List;
-
 import org.springframework.web.bind.annotation.*;
 
 import com.bluecollar.management.dto.WorkerProfileRequestDTO;
@@ -19,12 +17,25 @@ public class WorkerController {
     }
 
     @PostMapping("/profile")
-    public WorkerSearchResponseDTO createOrUpdateProfile(
-            @RequestParam Long userId, // TEMP (JWT later)
+    public WorkerSearchResponseDTO createProfile(
+            @RequestParam Long userId,   // TEMP until JWT
             @RequestBody WorkerProfileRequestDTO request) {
 
-        return workerProfileService.createOrUpdateProfile(userId, request);
+        return workerProfileService.createProfile(userId, request);
+    }
+
+    @PutMapping("/profile/{workerId}")
+    public WorkerSearchResponseDTO updateProfile(
+            @PathVariable Long workerId,
+            @RequestBody WorkerProfileRequestDTO request) {
+
+        return workerProfileService.updateProfile(workerId, request);
+    }
+
+    @DeleteMapping("/profile/{workerId}")
+    public String deleteProfile(@PathVariable Long workerId) {
+
+        workerProfileService.deleteProfile(workerId);
+        return "Worker profile deleted successfully";
     }
 }
-
-
