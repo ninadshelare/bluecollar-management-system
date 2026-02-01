@@ -1,7 +1,9 @@
 package com.bluecollar.management.controller;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,7 +23,6 @@ public class CustomerProfileController {
         this.customerProfileService = customerProfileService;
     }
 
-    // VIEW PROFILE
     @GetMapping("/profile")
     public CustomerProfileResponseDTO getProfile(
             @RequestParam Long userId // TEMP until JWT
@@ -29,13 +30,28 @@ public class CustomerProfileController {
         return customerProfileService.getProfile(userId);
     }
 
-    // CREATE / UPDATE PROFILE
     @PostMapping("/profile")
+    public CustomerProfileResponseDTO createProfile(
+            @RequestParam Long userId, // TEMP until JWT
+            @RequestBody CustomerProfileRequestDTO request
+    ) {
+        return customerProfileService.createProfile(userId, request);
+    }
+
+    @PutMapping("/profile")
     public CustomerProfileResponseDTO updateProfile(
             @RequestParam Long userId, // TEMP until JWT
             @RequestBody CustomerProfileRequestDTO request
     ) {
-        return customerProfileService.createOrUpdateProfile(userId, request);
+        return customerProfileService.updateProfile(userId, request);
+    }
+
+    @DeleteMapping("/profile")
+    public String deleteProfile(
+            @RequestParam Long userId // TEMP until JWT
+    ) {
+        customerProfileService.deleteProfile(userId);
+        return "Customer profile deleted successfully";
     }
 }
 

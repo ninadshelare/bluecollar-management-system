@@ -25,7 +25,51 @@ public class CustomerProfileService {
         this.customerRepository = customerRepository;
     }
 
-    public CustomerProfileResponseDTO createOrUpdateProfile(
+    public CustomerProfileResponseDTO getProfile(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != Role.CUSTOMER) {
+            throw new RuntimeException("User is not a CUSTOMER");
+        }
+
+        Customer customer = customerRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Customer profile not found"));
+
+        return mapToResponse(user, customer);
+    }
+
+    public CustomerProfileResponseDTO createProfile(
+            Long userId,
+            CustomerProfileRequestDTO request) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != Role.CUSTOMER) {
+            throw new RuntimeException("Only CUSTOMER can create profile");
+        }
+
+        if (customerRepository.findByUser(user).isPresent()) {
+            throw new RuntimeException("Customer profile already exists");
+        }
+
+        Customer customer = new Customer();
+        customer.setUser(user);
+        customer.setPhone(request.getPhone());
+        customer.setAddressLine1(request.getAddressLine1());
+        customer.setAddressLine2(request.getAddressLine2());
+        customer.setCity(request.getCity());
+        customer.setState(request.getState());
+        customer.setPincode(request.getPincode());
+
+        customerRepository.save(customer);
+
+        return mapToResponse(user, customer);
+    }
+
+    public CustomerProfileResponseDTO updateProfile(
             Long userId,
             CustomerProfileRequestDTO request) {
 
@@ -36,11 +80,9 @@ public class CustomerProfileService {
             throw new RuntimeException("Only CUSTOMER can update profile");
         }
 
-        Customer customer = customerRepository
-                .findByUser(user)
-                .orElse(new Customer());
+        Customer customer = customerRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Customer profile not found"));
 
-        customer.setUser(user);
         customer.setPhone(request.getPhone());
         customer.setAddressLine1(request.getAddressLine1());
         customer.setAddressLine2(request.getAddressLine2());
@@ -48,20 +90,20 @@ public class CustomerProfileService {
         customer.setState(request.getState());
         customer.setPincode(request.getPincode());
 
-        customer = customerRepository.save(customer);
+        customerRepository.save(customer);
 
         return mapToResponse(user, customer);
     }
 
-    public CustomerProfileResponseDTO getProfile(Long userId) {
+    public void deleteProfile(Long userId) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Customer customer = customerRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Profile not found"));
+                .orElseThrow(() -> new RuntimeException("Customer profile not found"));
 
-        return mapToResponse(user, customer);
+        customerRepository.delete(customer);
     }
 
     private CustomerProfileResponseDTO mapToResponse(User user, Customer customer) {
@@ -80,4 +122,3 @@ public class CustomerProfileService {
         return dto;
     }
 }
-

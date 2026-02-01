@@ -4,8 +4,9 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.*;
 
-import com.bluecollar.management.dto.WorkRequestResponseDTO;
 import com.bluecollar.management.dto.PaymentResponseDTO;
+import com.bluecollar.management.dto.WorkRequestResponseDTO;
+import com.bluecollar.management.dto.CustomerWorkRequestResponseDTO;
 import com.bluecollar.management.service.WorkRequestService;
 
 @RestController
@@ -47,5 +48,12 @@ public class WorkRequestController {
             @PathVariable Long workerId) {
 
         return workRequestService.getRequestsForWorker(workerId);
+    }
+
+    @GetMapping("/customer/{userId}")
+    public List<CustomerWorkRequestResponseDTO> getCustomerRequests(
+            @PathVariable Long userId) {
+
+        return workRequestService.getRequestsForCustomer(userId);
     }
 }
