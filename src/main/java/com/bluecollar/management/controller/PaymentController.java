@@ -15,7 +15,6 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    // 🔹 Get payment for a work request
     @GetMapping("/by-request/{workRequestId}")
     public PaymentResponseDTO getPaymentByRequest(
             @PathVariable Long workRequestId) {
@@ -23,8 +22,7 @@ public class PaymentController {
         return paymentService.getPaymentByWorkRequest(workRequestId);
     }
 
-    // 🔹 Mark payment as PAID
-    @PostMapping("/{paymentId}/pay")
+    @PutMapping("/{paymentId}/pay")
     public PaymentResponseDTO pay(
             @PathVariable Long paymentId) {
 

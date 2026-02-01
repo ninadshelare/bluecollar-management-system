@@ -1,6 +1,7 @@
 package com.bluecollar.management.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.bluecollar.management.dto.PaymentResponseDTO;
 import com.bluecollar.management.entity.Payment;
@@ -24,6 +25,7 @@ public class PaymentService {
         return mapToDTO(payment);
     }
 
+    @Transactional
     public PaymentResponseDTO markPaymentAsPaid(Long paymentId) {
 
         Payment payment = paymentRepository.findById(paymentId)
@@ -34,8 +36,9 @@ public class PaymentService {
         }
 
         payment.setStatus(PaymentStatus.PAID);
+        paymentRepository.save(payment);
 
-        return mapToDTO(paymentRepository.save(payment));
+        return mapToDTO(payment);
     }
 
     private PaymentResponseDTO mapToDTO(Payment payment) {
