@@ -38,8 +38,9 @@ public class WorkerProfileService {
         this.workerPricingRepository = workerPricingRepository;
     }
 
+    // ================= CREATE PROFILE =================
     @Transactional
-    public WorkerSearchResponseDTO createOrUpdateProfile(
+    public WorkerSearchResponseDTO createProfile(
             Long userId,
             WorkerProfileRequestDTO request) {
 
@@ -50,30 +51,111 @@ public class WorkerProfileService {
             throw new RuntimeException("Only WORKER can create profile");
         }
 
+        if (workerRepository.findByUser(user).isPresent()) {
+            throw new RuntimeException("Worker profile already exists");
+        }
+
+        Worker worker = buildWorkerFromRequest(user, request);
+        worker = workerRepository.save(worker);
+
+        WorkerPricing pricing = buildPricing(worker, request);
+        workerPricingRepository.save(pricing);
+
+        return mapToSearchDTO(worker, pricing);
+    }
+
+    // ================= UPDATE PROFILE (FIXED) =================
+    @Transactional
+    public WorkerSearchResponseDTO updateProfile(
+            Long workerId,
+            WorkerProfileRequestDTO request) {
+
+        Worker worker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new RuntimeException("Worker not found"));
+
         ServiceCategory service = serviceCategoryRepository
                 .findByName(request.getServiceName())
                 .orElseThrow(() -> new RuntimeException("Service not found"));
 
-        Worker worker = workerRepository.findByUser(user)
-                .orElse(new Worker());
-
-        worker.setUser(user);
+        // update worker fields
         worker.setServiceCategory(service);
         worker.setExperienceYears(request.getExperienceYears());
-        worker.setAvailable(true);
+        workerRepository.save(worker);
 
-        worker = workerRepository.save(worker);
+        // ✅ ALWAYS fetch existing pricing from DB
+        WorkerPricing pricing = workerPricingRepository
+                .findByWorker(worker)
+                .orElseThrow(() -> new RuntimeException("Pricing not found"));
 
-        workerPricingRepository.deleteByWorker(worker);
-
-        WorkerPricing pricing = new WorkerPricing();
-        pricing.setWorker(worker);
         pricing.setPricingType(request.getPricingType());
         pricing.setPrice(request.getPrice());
 
         workerPricingRepository.save(pricing);
 
         return mapToSearchDTO(worker, pricing);
+    }
+
+
+    // ================= DELETE PROFILE =================
+    @Transactional
+    public void deleteProfile(Long workerId) {
+
+        Worker worker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new RuntimeException("Worker not found"));
+
+        workerRepository.delete(worker);
+    }
+
+    // ================= GET PROFILE BY USER =================
+    public WorkerSearchResponseDTO getProfileByUserId(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != Role.WORKER) {
+            throw new RuntimeException("User is not a WORKER");
+        }
+
+        Worker worker = workerRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Worker profile not found"));
+
+        WorkerPricing pricing = worker.getPricingList()
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Pricing not found"));
+
+        return mapToSearchDTO(worker, pricing);
+    }
+
+    // ================= HELPER METHODS =================
+
+    private Worker buildWorkerFromRequest(
+            User user,
+            WorkerProfileRequestDTO request) {
+
+        ServiceCategory service = serviceCategoryRepository
+                .findByName(request.getServiceName())
+                .orElseThrow(() -> new RuntimeException("Service not found"));
+
+        Worker worker = new Worker();
+        worker.setUser(user);
+        worker.setServiceCategory(service);
+        worker.setExperienceYears(request.getExperienceYears());
+        worker.setAvailable(true);
+        worker.setRating(0.0);
+
+        return worker;
+    }
+
+    private WorkerPricing buildPricing(
+            Worker worker,
+            WorkerProfileRequestDTO request) {
+
+        WorkerPricing pricing = new WorkerPricing();
+        pricing.setWorker(worker);
+        pricing.setPricingType(request.getPricingType());
+        pricing.setPrice(request.getPrice());
+        return pricing;
     }
 
     private WorkerSearchResponseDTO mapToSearchDTO(

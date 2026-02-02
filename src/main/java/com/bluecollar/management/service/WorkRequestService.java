@@ -8,7 +8,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bluecollar.management.dto.CustomerSummaryDTO;
+import com.bluecollar.management.dto.CustomerWorkRequestResponseDTO;
 import com.bluecollar.management.dto.PaymentResponseDTO;
+import com.bluecollar.management.dto.PaymentSummaryDTO;
 import com.bluecollar.management.dto.WorkRequestResponseDTO;
 import com.bluecollar.management.dto.WorkerSummaryDTO;
 import com.bluecollar.management.entity.Payment;
@@ -33,16 +35,18 @@ public class WorkRequestService {
     private final WorkRequestRepository workRequestRepository;
     private final PaymentRepository paymentRepository;
 
-    public WorkRequestService(UserRepository userRepository,
-                              WorkerRepository workerRepository,
-                              WorkRequestRepository workRequestRepository,
-                              PaymentRepository paymentRepository) {
+    public WorkRequestService(
+            UserRepository userRepository,
+            WorkerRepository workerRepository,
+            WorkRequestRepository workRequestRepository,
+            PaymentRepository paymentRepository) {
         this.userRepository = userRepository;
         this.workerRepository = workerRepository;
         this.workRequestRepository = workRequestRepository;
         this.paymentRepository = paymentRepository;
     }
 
+    // ================= CREATE =================
     public WorkRequestResponseDTO createWorkRequest(Long customerId, Long workerId) {
 
         User customer = userRepository.findById(customerId)
@@ -65,6 +69,7 @@ public class WorkRequestService {
         return mapToWorkRequestDTO(workRequestRepository.save(request));
     }
 
+    // ================= ACCEPT =================
     public WorkRequestResponseDTO acceptWorkRequest(Long requestId, Long workerId) {
 
         WorkRequest request = workRequestRepository.findById(requestId)
@@ -91,6 +96,7 @@ public class WorkRequestService {
         return mapToWorkRequestDTO(workRequestRepository.save(request));
     }
 
+    // ================= COMPLETE =================
     @Transactional
     public PaymentResponseDTO completeWorkRequest(Long requestId, Double hoursWorked) {
 
@@ -115,12 +121,8 @@ public class WorkRequestService {
                 throw new RuntimeException("Hours worked required for HOURLY pricing");
             }
             amount = pricing.getPrice() * hoursWorked;
-
-        } else if (pricing.getPricingType() == PricingType.PER_JOB) {
-            amount = pricing.getPrice();
-
         } else {
-            throw new RuntimeException("Unsupported pricing type");
+            amount = pricing.getPrice();
         }
 
         request.setStatus(WorkRequestStatus.COMPLETED);
@@ -141,6 +143,35 @@ public class WorkRequestService {
         return mapToPaymentDTO(payment);
     }
 
+    // ================= CUSTOMER: MY REQUESTS (WITH PAYMENT) =================
+    public List<CustomerWorkRequestResponseDTO> getRequestsForCustomer(Long userId) {
+
+        User customer = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (customer.getRole() != Role.CUSTOMER) {
+            throw new RuntimeException("User is not CUSTOMER");
+        }
+
+        return workRequestRepository.findByCustomer(customer)
+                .stream()
+                .map(this::mapToCustomerRequestDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ================= WORKER: MY JOBS =================
+    public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
+
+        Worker worker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new RuntimeException("Worker not found"));
+
+        return workRequestRepository.findByWorker(worker)
+                .stream()
+                .map(this::mapToWorkRequestDTO)
+                .collect(Collectors.toList());
+    }
+
+    // ================= MAPPERS =================
     private WorkRequestResponseDTO mapToWorkRequestDTO(WorkRequest request) {
 
         CustomerSummaryDTO customerDTO = new CustomerSummaryDTO();
@@ -177,15 +208,25 @@ public class WorkRequestService {
 
         return dto;
     }
-    
-    public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
 
-        Worker worker = workerRepository.findById(workerId)
-                .orElseThrow(() -> new RuntimeException("Worker not found"));
+    private CustomerWorkRequestResponseDTO mapToCustomerRequestDTO(WorkRequest request) {
 
-        return workRequestRepository.findByWorker(worker)
-                .stream()
-                .map(this::mapToWorkRequestDTO)
-                .collect(Collectors.toList());
+        CustomerWorkRequestResponseDTO dto = new CustomerWorkRequestResponseDTO();
+        dto.setRequestId(request.getId());
+        dto.setServiceName(request.getServiceCategory().getName());
+        dto.setStatus(request.getStatus().name());
+        dto.setRequestedAt(request.getRequestedAt());
+
+        paymentRepository.findByWorkRequestId(request.getId())
+                .ifPresent(payment -> {
+                    PaymentSummaryDTO p = new PaymentSummaryDTO();
+                    p.setPaymentId(payment.getId());
+                    p.setAmount(payment.getAmount());
+                    p.setStatus(payment.getStatus());
+                    p.setPricingType(payment.getPricingType());
+                    dto.setPayment(p);
+                });
+
+        return dto;
     }
 }
