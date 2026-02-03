@@ -159,6 +159,7 @@ public class WorkRequestService {
                 .collect(Collectors.toList());
     }
 
+
     // ================= WORKER: MY JOBS =================
     public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
 
@@ -213,9 +214,15 @@ public class WorkRequestService {
 
         CustomerWorkRequestResponseDTO dto = new CustomerWorkRequestResponseDTO();
         dto.setRequestId(request.getId());
-        dto.setServiceName(request.getServiceCategory().getName());
         dto.setStatus(request.getStatus().name());
         dto.setRequestedAt(request.getRequestedAt());
+
+        // ✅ NULL SAFE
+        dto.setServiceName(
+            request.getServiceCategory() != null
+                ? request.getServiceCategory().getName()
+                : "UNKNOWN"
+        );
 
         paymentRepository.findByWorkRequestId(request.getId())
                 .ifPresent(payment -> {
@@ -229,4 +236,9 @@ public class WorkRequestService {
 
         return dto;
     }
+
+
+
+    
+    
 }

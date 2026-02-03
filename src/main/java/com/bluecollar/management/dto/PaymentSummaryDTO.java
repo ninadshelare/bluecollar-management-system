@@ -13,4 +13,6 @@ public class PaymentSummaryDTO {
     private Double amount;
     private PaymentStatus status;
     private PricingType pricingType;
+
 }
+
