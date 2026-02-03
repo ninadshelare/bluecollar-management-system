@@ -21,15 +21,10 @@ public class WorkerSearchController {
     @GetMapping("/search")
     public List<WorkerSearchResponseDTO> searchWorkers(
             @RequestParam String service,
-
-            @RequestParam(required = false)
-            PricingType pricingType,
-
-            @RequestParam(required = false)
-            Double maxPrice,
-
-            @RequestParam(required = false)
-            Double minRating
+            @RequestParam(required = false) PricingType pricingType,
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) Double minRating,
+            @RequestParam(required = false, defaultValue = "true") Boolean available
     ) {
         return workerSearchService.searchWorkers(
                 service,
@@ -38,4 +33,5 @@ public class WorkerSearchController {
                 minRating
         );
     }
+
 }
