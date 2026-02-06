@@ -4,8 +4,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.bluecollar.management.dto.CustomerSummaryDTO;
 import com.bluecollar.management.dto.CustomerWorkRequestResponseDTO;
@@ -13,6 +15,7 @@ import com.bluecollar.management.dto.PaymentResponseDTO;
 import com.bluecollar.management.dto.PaymentSummaryDTO;
 import com.bluecollar.management.dto.WorkRequestResponseDTO;
 import com.bluecollar.management.dto.WorkerSummaryDTO;
+import com.bluecollar.management.entity.Customer;
 import com.bluecollar.management.entity.Payment;
 import com.bluecollar.management.entity.User;
 import com.bluecollar.management.entity.WorkRequest;
@@ -22,6 +25,7 @@ import com.bluecollar.management.entity.enums.PaymentStatus;
 import com.bluecollar.management.entity.enums.PricingType;
 import com.bluecollar.management.entity.enums.Role;
 import com.bluecollar.management.entity.enums.WorkRequestStatus;
+import com.bluecollar.management.repository.CustomerRepository;
 import com.bluecollar.management.repository.PaymentRepository;
 import com.bluecollar.management.repository.UserRepository;
 import com.bluecollar.management.repository.WorkRequestRepository;
@@ -34,30 +38,37 @@ public class WorkRequestService {
     private final WorkerRepository workerRepository;
     private final WorkRequestRepository workRequestRepository;
     private final PaymentRepository paymentRepository;
+    private final CustomerRepository customerRepository;
 
     public WorkRequestService(
             UserRepository userRepository,
             WorkerRepository workerRepository,
             WorkRequestRepository workRequestRepository,
-            PaymentRepository paymentRepository) {
+            PaymentRepository paymentRepository,
+            CustomerRepository customerRepository) {
+
         this.userRepository = userRepository;
         this.workerRepository = workerRepository;
         this.workRequestRepository = workRequestRepository;
         this.paymentRepository = paymentRepository;
+        this.customerRepository = customerRepository;
     }
 
     // ================= CREATE =================
     public WorkRequestResponseDTO createWorkRequest(Long customerId, Long workerId) {
 
         User customer = userRepository.findById(customerId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Customer not found"));
 
         if (customer.getRole() != Role.CUSTOMER) {
-            throw new RuntimeException("User is not a CUSTOMER");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "User is not CUSTOMER");
         }
 
         Worker worker = workerRepository.findById(workerId)
-                .orElseThrow(() -> new RuntimeException("Worker not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Worker not found"));
 
         WorkRequest request = new WorkRequest();
         request.setCustomer(customer);
@@ -73,27 +84,35 @@ public class WorkRequestService {
     public WorkRequestResponseDTO acceptWorkRequest(Long requestId, Long workerId) {
 
         WorkRequest request = workRequestRepository.findById(requestId)
-                .orElseThrow(() -> new RuntimeException("Work request not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Work request not found"));
 
         if (request.getStatus() != WorkRequestStatus.PENDING) {
-            throw new RuntimeException("Only PENDING requests can be accepted");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Request already " + request.getStatus());
         }
 
         if (!request.getWorker().getId().equals(workerId)) {
-            throw new RuntimeException("This worker is not assigned to the request");
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Worker not assigned to this request");
         }
 
         Worker worker = request.getWorker();
 
         if (!worker.getAvailable()) {
-            throw new RuntimeException("Worker is not available");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Worker not available");
         }
 
         request.setStatus(WorkRequestStatus.ACCEPTED);
         worker.setAvailable(false);
 
         workerRepository.save(worker);
-        return mapToWorkRequestDTO(workRequestRepository.save(request));
+        workRequestRepository.save(request);
+
+        return mapToWorkRequestDTO(request);
     }
 
     // ================= COMPLETE =================
@@ -101,10 +120,12 @@ public class WorkRequestService {
     public PaymentResponseDTO completeWorkRequest(Long requestId, Double hoursWorked) {
 
         WorkRequest request = workRequestRepository.findById(requestId)
-                .orElseThrow(() -> new RuntimeException("Work request not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Work request not found"));
 
         if (request.getStatus() != WorkRequestStatus.ACCEPTED) {
-            throw new RuntimeException("Only ACCEPTED requests can be completed");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Only ACCEPTED requests can be completed");
         }
 
         Worker worker = request.getWorker();
@@ -112,13 +133,15 @@ public class WorkRequestService {
         WorkerPricing pricing = worker.getPricingList()
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Pricing not configured"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Pricing not configured"));
 
         double amount;
 
         if (pricing.getPricingType() == PricingType.HOURLY) {
             if (hoursWorked == null || hoursWorked <= 0) {
-                throw new RuntimeException("Hours worked required for HOURLY pricing");
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Hours required for HOURLY pricing");
             }
             amount = pricing.getPrice() * hoursWorked;
         } else {
@@ -143,28 +166,30 @@ public class WorkRequestService {
         return mapToPaymentDTO(payment);
     }
 
-    // ================= CUSTOMER: MY REQUESTS (WITH PAYMENT) =================
+    // ================= CUSTOMER: MY REQUESTS =================
     public List<CustomerWorkRequestResponseDTO> getRequestsForCustomer(Long userId) {
 
-        User customer = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User customerUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found"));
 
-        if (customer.getRole() != Role.CUSTOMER) {
-            throw new RuntimeException("User is not CUSTOMER");
+        if (customerUser.getRole() != Role.CUSTOMER) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "User is not CUSTOMER");
         }
 
-        return workRequestRepository.findByCustomer(customer)
+        return workRequestRepository.findByCustomer(customerUser)
                 .stream()
                 .map(this::mapToCustomerRequestDTO)
                 .collect(Collectors.toList());
     }
 
-
     // ================= WORKER: MY JOBS =================
     public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
 
         Worker worker = workerRepository.findById(workerId)
-                .orElseThrow(() -> new RuntimeException("Worker not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Worker not found"));
 
         return workRequestRepository.findByWorker(worker)
                 .stream()
@@ -172,12 +197,22 @@ public class WorkRequestService {
                 .collect(Collectors.toList());
     }
 
-    // ================= MAPPERS =================
+    // ================= DTO MAPPERS =================
     private WorkRequestResponseDTO mapToWorkRequestDTO(WorkRequest request) {
 
         CustomerSummaryDTO customerDTO = new CustomerSummaryDTO();
         customerDTO.setId(request.getCustomer().getId());
         customerDTO.setName(request.getCustomer().getName());
+
+        customerRepository.findByUser(request.getCustomer())
+                .ifPresent(c -> {
+                    customerDTO.setPhone(c.getPhone());
+                    customerDTO.setAddressLine1(c.getAddressLine1());
+                    customerDTO.setAddressLine2(c.getAddressLine2());
+                    customerDTO.setCity(c.getCity());
+                    customerDTO.setState(c.getState());
+                    customerDTO.setPincode(c.getPincode());
+                });
 
         WorkerSummaryDTO workerDTO = new WorkerSummaryDTO();
         workerDTO.setId(request.getWorker().getId());
@@ -196,33 +231,13 @@ public class WorkRequestService {
         return dto;
     }
 
-    private PaymentResponseDTO mapToPaymentDTO(Payment payment) {
-
-        PaymentResponseDTO dto = new PaymentResponseDTO();
-        dto.setPaymentId(payment.getId());
-        dto.setWorkRequestId(payment.getWorkRequest().getId());
-        dto.setWorkerId(payment.getWorker().getId());
-        dto.setPricingType(payment.getPricingType());
-        dto.setAmount(payment.getAmount());
-        dto.setStatus(payment.getStatus());
-        dto.setCreatedAt(payment.getCreatedAt());
-
-        return dto;
-    }
-
     private CustomerWorkRequestResponseDTO mapToCustomerRequestDTO(WorkRequest request) {
 
         CustomerWorkRequestResponseDTO dto = new CustomerWorkRequestResponseDTO();
         dto.setRequestId(request.getId());
         dto.setStatus(request.getStatus().name());
         dto.setRequestedAt(request.getRequestedAt());
-
-        // ✅ NULL SAFE
-        dto.setServiceName(
-            request.getServiceCategory() != null
-                ? request.getServiceCategory().getName()
-                : "UNKNOWN"
-        );
+        dto.setServiceName(request.getServiceCategory().getName());
 
         paymentRepository.findByWorkRequestId(request.getId())
                 .ifPresent(payment -> {
@@ -237,8 +252,17 @@ public class WorkRequestService {
         return dto;
     }
 
+    private PaymentResponseDTO mapToPaymentDTO(Payment payment) {
 
+        PaymentResponseDTO dto = new PaymentResponseDTO();
+        dto.setPaymentId(payment.getId());
+        dto.setWorkRequestId(payment.getWorkRequest().getId());
+        dto.setWorkerId(payment.getWorker().getId());
+        dto.setPricingType(payment.getPricingType());
+        dto.setAmount(payment.getAmount());
+        dto.setStatus(payment.getStatus());
+        dto.setCreatedAt(payment.getCreatedAt());
 
-    
-    
+        return dto;
+    }
 }
