@@ -1,23 +1,19 @@
 package com.bluecollar.management.dto;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class CustomerSummaryDTO {
 
     private Long id;
     private String name;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
+    private String phone;
+    private String addressLine1;
+    private String addressLine2;
+    private String city;
+    private String state;
+    private String pincode;
 }
+
