@@ -57,11 +57,11 @@ public class WorkRequestService {
     // ================= CREATE =================
     public WorkRequestResponseDTO createWorkRequest(Long customerId, Long workerId) {
 
-        User customer = userRepository.findById(customerId)
+        User customerUser = userRepository.findById(customerId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Customer not found"));
 
-        if (customer.getRole() != Role.CUSTOMER) {
+        if (customerUser.getRole() != Role.CUSTOMER) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "User is not CUSTOMER");
         }
@@ -71,7 +71,7 @@ public class WorkRequestService {
                         HttpStatus.NOT_FOUND, "Worker not found"));
 
         WorkRequest request = new WorkRequest();
-        request.setCustomer(customer);
+        request.setCustomer(customerUser);
         request.setWorker(worker);
         request.setServiceCategory(worker.getServiceCategory());
         request.setStatus(WorkRequestStatus.PENDING);
@@ -86,6 +86,11 @@ public class WorkRequestService {
         WorkRequest request = workRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Work request not found"));
+
+        // ✅ IDPOTENT BEHAVIOR (IMPORTANT)
+        if (request.getStatus() == WorkRequestStatus.ACCEPTED) {
+            return mapToWorkRequestDTO(request);
+        }
 
         if (request.getStatus() != WorkRequestStatus.PENDING) {
             throw new ResponseStatusException(
@@ -114,6 +119,7 @@ public class WorkRequestService {
 
         return mapToWorkRequestDTO(request);
     }
+
 
     // ================= COMPLETE =================
     @Transactional
@@ -167,6 +173,7 @@ public class WorkRequestService {
     }
 
     // ================= CUSTOMER: MY REQUESTS =================
+    @Transactional(readOnly = true)
     public List<CustomerWorkRequestResponseDTO> getRequestsForCustomer(Long userId) {
 
         User customerUser = userRepository.findById(userId)
@@ -185,6 +192,7 @@ public class WorkRequestService {
     }
 
     // ================= WORKER: MY JOBS =================
+    @Transactional(readOnly = true)
     public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
 
         Worker worker = workerRepository.findById(workerId)
@@ -204,7 +212,8 @@ public class WorkRequestService {
         customerDTO.setId(request.getCustomer().getId());
         customerDTO.setName(request.getCustomer().getName());
 
-        customerRepository.findByUser(request.getCustomer())
+        // ✅ SAFE ID-BASED LOOKUP (NO PROXY ISSUES)
+        customerRepository.findByUserId(request.getCustomer().getId())
                 .ifPresent(c -> {
                     customerDTO.setPhone(c.getPhone());
                     customerDTO.setAddressLine1(c.getAddressLine1());
