@@ -26,12 +26,19 @@ CREATE TABLE `attendance` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `contract_id` bigint NOT NULL,
   `work_date` date NOT NULL,
-  `check_in` time DEFAULT NULL,
-  `check_out` time DEFAULT NULL,
+  `check_in` datetime(6) DEFAULT NULL,
+  `check_out` datetime(6) DEFAULT NULL,
   `status` enum('PRESENT','ABSENT','HALF_DAY') DEFAULT NULL,
+  `total_hours` double DEFAULT NULL,
+  `work_request_id` bigint DEFAULT NULL,
+  `worker_id` bigint NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `contract_id` (`contract_id`,`work_date`),
-  CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`contract_id`) REFERENCES `contract` (`id`)
+  UNIQUE KEY `UKgoy6j7m258a0hlxh4p9wxr1ed` (`worker_id`,`work_date`),
+  KEY `FKhs50lyj5fpjiq89rxk69vaus8` (`work_request_id`),
+  CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`contract_id`) REFERENCES `contract` (`id`),
+  CONSTRAINT `FKhs50lyj5fpjiq89rxk69vaus8` FOREIGN KEY (`work_request_id`) REFERENCES `work_request` (`id`),
+  CONSTRAINT `FKqs83odp2f8mwlywc2wk2s73dh` FOREIGN KEY (`worker_id`) REFERENCES `worker` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -66,10 +73,16 @@ CREATE TABLE `customer` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `user_id` bigint NOT NULL,
   `address` varchar(255) DEFAULT NULL,
+  `phone` varchar(255) DEFAULT NULL,
+  `address_line1` varchar(255) DEFAULT NULL,
+  `address_line2` varchar(255) DEFAULT NULL,
+  `city` varchar(255) DEFAULT NULL,
+  `state` varchar(255) DEFAULT NULL,
+  `pincode` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `customer_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -92,7 +105,7 @@ CREATE TABLE `feedback` (
   CONSTRAINT `feedback_ibfk_1` FOREIGN KEY (`work_request_id`) REFERENCES `work_request` (`id`),
   CONSTRAINT `FKi09akqdb747xga26931nryfcf` FOREIGN KEY (`worker_id`) REFERENCES `worker` (`id`),
   CONSTRAINT `feedback_chk_1` CHECK ((`rating` between 1 and 5))
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -134,6 +147,48 @@ CREATE TABLE `job` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `maid_attendance`
+--
+
+DROP TABLE IF EXISTS `maid_attendance`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `maid_attendance` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `worker_id` bigint NOT NULL,
+  `attendance_date` date NOT NULL,
+  `status` enum('PRESENT','ABSENT') NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `worker_id` (`worker_id`,`attendance_date`),
+  CONSTRAINT `fk_attendance_worker` FOREIGN KEY (`worker_id`) REFERENCES `worker` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `maid_salary`
+--
+
+DROP TABLE IF EXISTS `maid_salary`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `maid_salary` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `worker_id` bigint NOT NULL,
+  `total_days` int NOT NULL,
+  `present_days` int NOT NULL,
+  `calculated_amount` double DEFAULT NULL,
+  `monthly_price` double DEFAULT NULL,
+  `paid` bit(1) NOT NULL DEFAULT b'0',
+  `salary_month` varbinary(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `worker_id` (`worker_id`),
+  UNIQUE KEY `UK90bjuebf5dmhwhv1qcn2fakk0` (`worker_id`,`salary_month`),
+  CONSTRAINT `fk_salary_worker` FOREIGN KEY (`worker_id`) REFERENCES `worker` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `payment`
 --
 
@@ -155,7 +210,7 @@ CREATE TABLE `payment` (
   KEY `FKmbtjhfmxyvqjxkwtrry7xvc1q` (`worker_id`),
   CONSTRAINT `FKmbtjhfmxyvqjxkwtrry7xvc1q` FOREIGN KEY (`worker_id`) REFERENCES `worker` (`id`),
   CONSTRAINT `payment_ibfk_1` FOREIGN KEY (`work_request_id`) REFERENCES `work_request` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -205,7 +260,7 @@ CREATE TABLE `service_category` (
   `name` varchar(255) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `UKrq4iui706ylaju1tyhc8j6wo4` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -225,7 +280,7 @@ CREATE TABLE `user` (
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -254,7 +309,7 @@ CREATE TABLE `work_request` (
   CONSTRAINT `fk_work_request_service` FOREIGN KEY (`service_id`) REFERENCES `service_category` (`id`),
   CONSTRAINT `FKkbt2ocxwvw9oasir52mutluc4` FOREIGN KEY (`customer_id`) REFERENCES `user` (`id`),
   CONSTRAINT `work_request_ibfk_2` FOREIGN KEY (`worker_id`) REFERENCES `worker` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -273,12 +328,14 @@ CREATE TABLE `worker` (
   `verified` tinyint(1) DEFAULT '0',
   `experience_years` int DEFAULT NULL,
   `service_id` bigint NOT NULL,
+  `worker_type` varchar(50) NOT NULL,
+  `active` bit(1) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   KEY `FKcvargffig6o4fvqbflgchyljt` (`service_id`),
   CONSTRAINT `FKcvargffig6o4fvqbflgchyljt` FOREIGN KEY (`service_id`) REFERENCES `service_category` (`id`),
   CONSTRAINT `worker_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -296,7 +353,7 @@ CREATE TABLE `worker_pricing` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `UKj8l4fp7sx8d61w523qw3ewpgx` (`worker_id`),
   CONSTRAINT `FKtl53p1ryj01684ekuem7vvw5` FOREIGN KEY (`worker_id`) REFERENCES `worker` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -330,4 +387,4 @@ CREATE TABLE `worker_service` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-01-28 23:02:28
+-- Dump completed on 2026-02-03 14:13:07

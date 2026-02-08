@@ -14,29 +14,33 @@ import com.bluecollar.management.entity.enums.PricingType;
 
 public interface WorkerRepository extends JpaRepository<Worker, Long> {
 
-    Optional<Worker> findByUser(User user);
+    Optional<Worker> findByUserAndActiveTrue(User user);
+
 
     @Query("""
-        SELECT DISTINCT w
-        FROM Worker w
-        JOIN w.user u
-        JOIN w.serviceCategory sc
-        JOIN w.pricingList p
-        WHERE u.role = com.bluecollar.management.entity.enums.Role.WORKER
-          AND sc.name = :service
-          AND w.available = :available
-          AND (:pricingType IS NULL OR p.pricingType = :pricingType)
-          AND (:maxPrice IS NULL OR p.price <= :maxPrice)
-          AND (:minRating IS NULL OR w.rating >= :minRating)
-    """)
-    List<Worker> searchWorkers(
-            @Param("service") String service,
-            @Param("available") Boolean available,
-            @Param("pricingType") PricingType pricingType,
-            @Param("maxPrice") Double maxPrice,
-            @Param("minRating") Double minRating
-    );
+            SELECT DISTINCT w
+            FROM Worker w
+            JOIN w.user u
+            JOIN w.serviceCategory sc
+            LEFT JOIN FETCH w.pricingList p
+            WHERE u.role = com.bluecollar.management.entity.enums.Role.WORKER
+              AND w.active = true
+              AND sc.name = :service
+              AND w.available = :available
+              AND (:pricingType IS NULL OR p.pricingType = :pricingType)
+              AND (:maxPrice IS NULL OR p.price <= :maxPrice)
+              AND (:minRating IS NULL OR w.rating >= :minRating)
+        """)
+        List<Worker> searchWorkers(
+                @Param("service") String service,
+                @Param("available") Boolean available,
+                @Param("pricingType") PricingType pricingType,
+                @Param("maxPrice") Double maxPrice,
+                @Param("minRating") Double minRating
+        );
 
+
+    // legacy / optional
     List<Worker> findByServiceCategory(ServiceCategory serviceCategory);
 
     List<Worker> findByServiceCategoryAndAvailableTrue(ServiceCategory serviceCategory);

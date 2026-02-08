@@ -24,7 +24,7 @@ public class WorkerService {
             Boolean available,
             Double minRating
     ) {
-
+        System.out.println("🔥 SEARCH API HIT: service=" + service);
         // ✅ Defensive defaults (VERY IMPORTANT)
         if (available == null) {
             available = true;

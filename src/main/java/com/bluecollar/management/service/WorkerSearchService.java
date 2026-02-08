@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.bluecollar.management.dto.PricingDTO;
 import com.bluecollar.management.dto.WorkerSearchResponseDTO;
 import com.bluecollar.management.entity.Worker;
+import com.bluecollar.management.entity.WorkerPricing;
 import com.bluecollar.management.entity.enums.PricingType;
 import com.bluecollar.management.repository.WorkerRepository;
 
@@ -26,19 +27,10 @@ public class WorkerSearchService {
             Double maxPrice,
             Double minRating
     ) {
-
-        // ✅ SAFE DEFAULTS (THIS FIXES 400 ERROR)
-        if (maxPrice == null) {
-            maxPrice = Double.MAX_VALUE;
-        }
-        if (minRating == null) {
-            minRating = 0.0;
-        }
-
         List<Worker> workers = workerRepository.searchWorkers(
                 service,
-                true,           // only available workers
-                pricingType,    // nullable
+                true,
+                pricingType,
                 maxPrice,
                 minRating
         );
@@ -47,6 +39,8 @@ public class WorkerSearchService {
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
+
+
 
     private WorkerSearchResponseDTO mapToDTO(Worker worker) {
 
@@ -58,17 +52,28 @@ public class WorkerSearchService {
         dto.setExperienceYears(worker.getExperienceYears());
         dto.setAvailable(worker.getAvailable());
 
-        List<PricingDTO> pricingDTOs = worker.getPricingList()
-                .stream()
-                .map(p -> {
-                    PricingDTO pd = new PricingDTO();
-                    pd.setPricingType(p.getPricingType());
-                    pd.setPrice(p.getPrice());
-                    return pd;
-                })
-                .collect(Collectors.toList());
+        // ✅ SAFE PRICING HANDLING
+        if (worker.getPricingList() != null && !worker.getPricingList().isEmpty()) {
 
-        dto.setPricing(pricingDTOs);
+            WorkerPricing pricing = worker.getPricingList()
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+
+
+            PricingDTO p = new PricingDTO();
+            p.setPricingType(pricing.getPricingType());
+            p.setPrice(pricing.getPrice());
+
+            dto.setPricing(List.of(p));
+
+        } else {
+            // 🔒 DO NOT CRASH SEARCH
+            dto.setPricing(List.of());
+        }
+
         return dto;
     }
+
+
 }
