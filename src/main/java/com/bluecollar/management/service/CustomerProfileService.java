@@ -34,10 +34,9 @@ public class CustomerProfileService {
             throw new RuntimeException("User is not a CUSTOMER");
         }
 
-        Customer customer = customerRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Customer profile not found"));
-
-        return mapToResponse(user, customer);
+        return customerRepository.findByUser(user)
+                .map(customer -> mapToResponse(user, customer))
+                .orElse(null); 
     }
 
     public CustomerProfileResponseDTO createProfile(
