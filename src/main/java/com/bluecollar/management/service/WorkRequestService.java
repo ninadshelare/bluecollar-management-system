@@ -2,6 +2,7 @@ package com.bluecollar.management.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -44,17 +45,16 @@ public class WorkRequestService {
     public WorkRequestResponseDTO createWorkRequest(Long customerId, Long workerId) {
 
         User customerUser = userRepository.findById(customerId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Customer not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
 
         if (customerUser.getRole() != Role.CUSTOMER) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "User is not CUSTOMER");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is not CUSTOMER");
         }
 
         Worker worker = workerRepository.findById(workerId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Worker not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found"));
 
         WorkRequest request = new WorkRequest();
         request.setCustomer(customerUser);
@@ -70,8 +70,8 @@ public class WorkRequestService {
     public WorkRequestResponseDTO acceptWorkRequest(Long requestId, Long workerId) {
 
         WorkRequest request = workRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Work request not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Work request not found"));
 
         // ✅ Idempotent
         if (request.getStatus() == WorkRequestStatus.ACCEPTED) {
@@ -86,15 +86,13 @@ public class WorkRequestService {
 
         if (!request.getWorker().getId().equals(workerId)) {
             throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Worker not assigned to this request");
+                    HttpStatus.FORBIDDEN, "Worker not assigned to this request");
         }
 
         Worker worker = request.getWorker();
 
-        if (!worker.getAvailable()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Worker not available");
+        if (!Boolean.TRUE.equals(worker.getAvailable())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Worker not available");
         }
 
         request.setStatus(WorkRequestStatus.ACCEPTED);
@@ -111,13 +109,12 @@ public class WorkRequestService {
     public PaymentResponseDTO completeWorkRequest(Long requestId, Double hoursWorked) {
 
         WorkRequest request = workRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Work request not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Work request not found"));
 
         if (request.getStatus() != WorkRequestStatus.ACCEPTED) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Only ACCEPTED requests can be completed");
+                    HttpStatus.BAD_REQUEST, "Only ACCEPTED requests can be completed");
         }
 
         Worker worker = request.getWorker();
@@ -125,13 +122,20 @@ public class WorkRequestService {
         WorkerPricing pricing = worker.getPricingList()
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Pricing not configured"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pricing not configured"));
 
-        double amount =
-                pricing.getPricingType() == PricingType.HOURLY
-                        ? pricing.getPrice() * hoursWorked
-                        : pricing.getPrice();
+        double amount;
+
+        if (pricing.getPricingType() == PricingType.HOURLY) {
+            if (hoursWorked == null || hoursWorked <= 0) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Hours required for HOURLY pricing");
+            }
+            amount = pricing.getPrice() * hoursWorked;
+        } else {
+            amount = pricing.getPrice();
+        }
 
         request.setStatus(WorkRequestStatus.COMPLETED);
         worker.setAvailable(true);
@@ -156,12 +160,20 @@ public class WorkRequestService {
     public List<CustomerWorkRequestResponseDTO> getRequestsForCustomer(Long userId) {
 
         User customerUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         return workRequestRepository.findByCustomer(customerUser)
                 .stream()
-                .map(this::mapToCustomerRequestDTO)
+                .map(req -> {
+                    try {
+                        return mapToCustomerRequestDTO(req);
+                    } catch (Exception e) {
+                        e.printStackTrace(); // prevents total API failure
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
@@ -170,8 +182,8 @@ public class WorkRequestService {
     public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
 
         Worker worker = workerRepository.findById(workerId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Worker not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found"));
 
         return workRequestRepository.findByWorker(worker)
                 .stream()
@@ -206,7 +218,14 @@ public class WorkRequestService {
         WorkRequestResponseDTO dto = new WorkRequestResponseDTO();
         dto.setRequestId(request.getId());
         dto.setStatus(request.getStatus().name());
-        dto.setServiceName(request.getServiceCategory().getName());
+
+        // ✅ NULL SAFE
+        dto.setServiceName(
+                request.getServiceCategory() != null
+                        ? request.getServiceCategory().getName()
+                        : "UNKNOWN"
+        );
+
         dto.setRequestedAt(request.getRequestedAt());
         dto.setCustomer(customerDTO);
         dto.setWorker(workerDTO);
@@ -220,7 +239,12 @@ public class WorkRequestService {
         dto.setRequestId(request.getId());
         dto.setStatus(request.getStatus().name());
         dto.setRequestedAt(request.getRequestedAt());
-        dto.setServiceName(request.getServiceCategory().getName());
+
+        dto.setServiceName(
+                request.getServiceCategory() != null
+                        ? request.getServiceCategory().getName()
+                        : "UNKNOWN"
+        );
 
         paymentRepository.findByWorkRequestId(request.getId())
                 .ifPresent(p -> {

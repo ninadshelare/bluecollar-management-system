@@ -34,6 +34,15 @@ public class Payment {
 
     private LocalDateTime createdAt;
 
+    // 🆕 ADD THESE FIELDS
+    @Column(name = "transaction_id", unique = true)
+    private String transactionId;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    // ===== GETTERS & SETTERS =====
+
     public Long getId() {
         return id;
     }
@@ -84,5 +93,23 @@ public class Payment {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    // 🆕 NEW GETTERS & SETTERS
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    public LocalDateTime getPaidAt() {
+        return paidAt;
+    }
+
+    public void setPaidAt(LocalDateTime paidAt) {
+        this.paidAt = paidAt;
     }
 }
