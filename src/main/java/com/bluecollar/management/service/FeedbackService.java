@@ -3,8 +3,10 @@ package com.bluecollar.management.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.bluecollar.management.dto.FeedbackResponseDTO;
 import com.bluecollar.management.entity.Feedback;
@@ -34,14 +36,31 @@ public class FeedbackService {
     public FeedbackResponseDTO addFeedback(Long requestId, Integer rating, String comment) {
 
         if (rating < 1 || rating > 5) {
-            throw new RuntimeException("Rating must be between 1 and 5");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Rating must be between 1 and 5"
+            );
         }
 
         WorkRequest request = workRequestRepository.findById(requestId)
-                .orElseThrow(() -> new RuntimeException("Work request not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Work request not found"
+                ));
 
         if (request.getStatus() != WorkRequestStatus.COMPLETED) {
-            throw new RuntimeException("Feedback allowed only after COMPLETED work");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Feedback allowed only after COMPLETED work"
+            );
+        }
+
+        // 🔥 IMPORTANT FIX
+        if (feedbackRepository.existsByWorkRequest(request)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Feedback already submitted"
+            );
         }
 
         Worker worker = request.getWorker();
@@ -59,6 +78,7 @@ public class FeedbackService {
 
         return mapToResponseDTO(savedFeedback);
     }
+
 
     private void updateWorkerRating(Worker worker) {
 

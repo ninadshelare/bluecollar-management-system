@@ -1,17 +1,12 @@
 package com.bluecollar.management.controller;
 
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.bluecollar.management.dto.CustomerProfileRequestDTO;
 import com.bluecollar.management.dto.CustomerProfileResponseDTO;
 import com.bluecollar.management.service.CustomerProfileService;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -23,35 +18,47 @@ public class CustomerProfileController {
         this.customerProfileService = customerProfileService;
     }
 
+    // ✅ SAFE JWT USER ID EXTRACTION
+    private Long getUserId(HttpServletRequest request) {
+        Object userIdAttr = request.getAttribute("userId");
+        if (userIdAttr == null) {
+            throw new RuntimeException("UserId not found in JWT");
+        }
+        return ((Number) userIdAttr).longValue();
+    }
+
     @GetMapping("/profile")
-    public CustomerProfileResponseDTO getProfile(
-            @RequestParam Long userId // TEMP until JWT
-    ) {
-        return customerProfileService.getProfile(userId);
+    public CustomerProfileResponseDTO getProfile(HttpServletRequest request) {
+        return customerProfileService.getProfile(getUserId(request));
     }
 
-    @PostMapping("/profile")
+    @PostMapping(
+        value = "/profile",
+        consumes = "application/json",
+        produces = "application/json"
+    )
     public CustomerProfileResponseDTO createProfile(
-            @RequestParam Long userId, // TEMP until JWT
-            @RequestBody CustomerProfileRequestDTO request
-    ) {
-        return customerProfileService.createProfile(userId, request);
+            HttpServletRequest request,
+            @RequestBody CustomerProfileRequestDTO dto) {
+
+        return customerProfileService.createProfile(getUserId(request), dto);
     }
 
-    @PutMapping("/profile")
+    @PutMapping(
+        value = "/profile",
+        consumes = "application/json",
+        produces = "application/json"
+    )
     public CustomerProfileResponseDTO updateProfile(
-            @RequestParam Long userId, // TEMP until JWT
-            @RequestBody CustomerProfileRequestDTO request
-    ) {
-        return customerProfileService.updateProfile(userId, request);
+            HttpServletRequest request,
+            @RequestBody CustomerProfileRequestDTO dto) {
+
+        return customerProfileService.updateProfile(getUserId(request), dto);
     }
 
     @DeleteMapping("/profile")
-    public String deleteProfile(
-            @RequestParam Long userId // TEMP until JWT
-    ) {
-        customerProfileService.deleteProfile(userId);
+    public String deleteProfile(HttpServletRequest request) {
+        customerProfileService.deleteProfile(getUserId(request));
         return "Customer profile deleted successfully";
     }
 }
-

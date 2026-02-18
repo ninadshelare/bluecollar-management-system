@@ -1,4 +1,7 @@
 spring:
+  profiles:
+    active: dev
+
   datasource:
     url: jdbc:mysql://localhost:3306/bluecollar_management
     username: root
@@ -15,3 +18,7 @@ spring:
 
 server:
   port: 8081
+  
+jwt:
+  secret: bluecollar-secret-key-1234567890123456
+  expiration: 86400000   # 1 day

@@ -15,6 +15,10 @@ public class CustomerWorkRequestResponseDTO {
     private String status;
     private LocalDateTime requestedAt;
     private PaymentSummaryDTO payment; // can be NULL
+    private FeedbackSummaryDTO feedback;
+
+    
+
 
 }
 

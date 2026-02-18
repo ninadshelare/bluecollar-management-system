@@ -2,6 +2,7 @@ package com.bluecollar.management.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -9,27 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.bluecollar.management.dto.CustomerSummaryDTO;
-import com.bluecollar.management.dto.CustomerWorkRequestResponseDTO;
-import com.bluecollar.management.dto.PaymentResponseDTO;
-import com.bluecollar.management.dto.PaymentSummaryDTO;
-import com.bluecollar.management.dto.WorkRequestResponseDTO;
-import com.bluecollar.management.dto.WorkerSummaryDTO;
-import com.bluecollar.management.entity.Customer;
-import com.bluecollar.management.entity.Payment;
-import com.bluecollar.management.entity.User;
-import com.bluecollar.management.entity.WorkRequest;
-import com.bluecollar.management.entity.Worker;
-import com.bluecollar.management.entity.WorkerPricing;
-import com.bluecollar.management.entity.enums.PaymentStatus;
-import com.bluecollar.management.entity.enums.PricingType;
-import com.bluecollar.management.entity.enums.Role;
-import com.bluecollar.management.entity.enums.WorkRequestStatus;
-import com.bluecollar.management.repository.CustomerRepository;
-import com.bluecollar.management.repository.PaymentRepository;
-import com.bluecollar.management.repository.UserRepository;
-import com.bluecollar.management.repository.WorkRequestRepository;
-import com.bluecollar.management.repository.WorkerRepository;
+import com.bluecollar.management.dto.*;
+import com.bluecollar.management.entity.*;
+import com.bluecollar.management.entity.enums.*;
+import com.bluecollar.management.repository.*;
 
 @Service
 public class WorkRequestService {
@@ -39,39 +23,51 @@ public class WorkRequestService {
     private final WorkRequestRepository workRequestRepository;
     private final PaymentRepository paymentRepository;
     private final CustomerRepository customerRepository;
+    private final FeedbackRepository feedbackRepository;
 
     public WorkRequestService(
             UserRepository userRepository,
             WorkerRepository workerRepository,
             WorkRequestRepository workRequestRepository,
             PaymentRepository paymentRepository,
-            CustomerRepository customerRepository) {
+            CustomerRepository customerRepository,
+            FeedbackRepository feedbackRepository) {
 
         this.userRepository = userRepository;
         this.workerRepository = workerRepository;
         this.workRequestRepository = workRequestRepository;
         this.paymentRepository = paymentRepository;
         this.customerRepository = customerRepository;
+        this.feedbackRepository = feedbackRepository;
     }
 
     // ================= CREATE =================
-    public WorkRequestResponseDTO createWorkRequest(Long customerId, Long workerId) {
+    public WorkRequestResponseDTO createWorkRequest(Long userId, Long workerId) {
+    	
+    	System.out.println("JWT userId = " + userId);
+    	System.out.println("WorkerId = " + workerId);
 
-        User customerUser = userRepository.findById(customerId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Customer not found"));
+    	User user = userRepository.findById(userId)
+    	        .orElseThrow(() -> {
+    	            System.out.println("❌ USER NOT FOUND");
+    	            return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+    	        });
 
-        if (customerUser.getRole() != Role.CUSTOMER) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "User is not CUSTOMER");
-        }
+        // ✅ THIS IS THE KEY FIX
+    	Customer customer = customerRepository.findByUser(user)
+    	        .orElseThrow(() -> {
+    	            System.out.println("❌ CUSTOMER PROFILE NOT FOUND FOR USER ID " + userId);
+    	            return new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer profile not found");
+    	        });
 
-        Worker worker = workerRepository.findById(workerId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Worker not found"));
+    	Worker worker = workerRepository.findById(workerId)
+    	        .orElseThrow(() -> {
+    	            System.out.println("❌ WORKER NOT FOUND: " + workerId);
+    	            return new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found");
+    	        });
 
         WorkRequest request = new WorkRequest();
-        request.setCustomer(customerUser);
+        request.setCustomer(customer); // ✅ CORRECT ENTITY
         request.setWorker(worker);
         request.setServiceCategory(worker.getServiceCategory());
         request.setStatus(WorkRequestStatus.PENDING);
@@ -79,15 +75,14 @@ public class WorkRequestService {
 
         return mapToWorkRequestDTO(workRequestRepository.save(request));
     }
-
     // ================= ACCEPT =================
     public WorkRequestResponseDTO acceptWorkRequest(Long requestId, Long workerId) {
 
         WorkRequest request = workRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Work request not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Work request not found"));
 
-        // ✅ IDPOTENT BEHAVIOR (IMPORTANT)
+        // ✅ Idempotent
         if (request.getStatus() == WorkRequestStatus.ACCEPTED) {
             return mapToWorkRequestDTO(request);
         }
@@ -100,15 +95,13 @@ public class WorkRequestService {
 
         if (!request.getWorker().getId().equals(workerId)) {
             throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Worker not assigned to this request");
+                    HttpStatus.FORBIDDEN, "Worker not assigned to this request");
         }
 
         Worker worker = request.getWorker();
 
-        if (!worker.getAvailable()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Worker not available");
+        if (!Boolean.TRUE.equals(worker.getAvailable())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Worker not available");
         }
 
         request.setStatus(WorkRequestStatus.ACCEPTED);
@@ -120,14 +113,13 @@ public class WorkRequestService {
         return mapToWorkRequestDTO(request);
     }
 
-
     // ================= COMPLETE =================
     @Transactional
     public PaymentResponseDTO completeWorkRequest(Long requestId, Double hoursWorked) {
 
         WorkRequest request = workRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Work request not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Work request not found"));
 
         if (request.getStatus() != WorkRequestStatus.ACCEPTED) {
             throw new ResponseStatusException(
@@ -139,8 +131,8 @@ public class WorkRequestService {
         WorkerPricing pricing = worker.getPricingList()
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Pricing not configured"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pricing not configured"));
 
         double amount;
 
@@ -172,32 +164,33 @@ public class WorkRequestService {
         return mapToPaymentDTO(payment);
     }
 
-    // ================= CUSTOMER: MY REQUESTS =================
+    // ================= CUSTOMER REQUESTS =================
     @Transactional(readOnly = true)
     public List<CustomerWorkRequestResponseDTO> getRequestsForCustomer(Long userId) {
 
         User customerUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        if (customerUser.getRole() != Role.CUSTOMER) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "User is not CUSTOMER");
-        }
+        Customer customer = customerRepository.findByUser(customerUser)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Customer profile not completed"
+                        ));
 
-        return workRequestRepository.findByCustomer(customerUser)
+        return workRequestRepository.findByCustomer(customer)
                 .stream()
                 .map(this::mapToCustomerRequestDTO)
                 .collect(Collectors.toList());
     }
-
-    // ================= WORKER: MY JOBS =================
+    // ================= WORKER JOBS =================
     @Transactional(readOnly = true)
     public List<WorkRequestResponseDTO> getRequestsForWorker(Long workerId) {
 
         Worker worker = workerRepository.findById(workerId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Worker not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found"));
 
         return workRequestRepository.findByWorker(worker)
                 .stream()
@@ -205,34 +198,39 @@ public class WorkRequestService {
                 .collect(Collectors.toList());
     }
 
-    // ================= DTO MAPPERS =================
+    // ================= MAPPERS =================
+
     private WorkRequestResponseDTO mapToWorkRequestDTO(WorkRequest request) {
 
-        CustomerSummaryDTO customerDTO = new CustomerSummaryDTO();
-        customerDTO.setId(request.getCustomer().getId());
-        customerDTO.setName(request.getCustomer().getName());
+        Customer customer = request.getCustomer();
 
-        // ✅ SAFE ID-BASED LOOKUP (NO PROXY ISSUES)
-        customerRepository.findByUserId(request.getCustomer().getId())
-                .ifPresent(c -> {
-                    customerDTO.setPhone(c.getPhone());
-                    customerDTO.setAddressLine1(c.getAddressLine1());
-                    customerDTO.setAddressLine2(c.getAddressLine2());
-                    customerDTO.setCity(c.getCity());
-                    customerDTO.setState(c.getState());
-                    customerDTO.setPincode(c.getPincode());
-                });
+        CustomerSummaryDTO customerDTO = new CustomerSummaryDTO();
+        customerDTO.setId(customer.getId());
+        customerDTO.setName(customer.getUser().getName());
+
+        customerDTO.setPhone(customer.getPhone());
+        customerDTO.setAddressLine1(customer.getAddressLine1());
+        customerDTO.setAddressLine2(customer.getAddressLine2());
+        customerDTO.setCity(customer.getCity());
+        customerDTO.setState(customer.getState());
+        customerDTO.setPincode(customer.getPincode());
+
+        Worker worker = request.getWorker();
 
         WorkerSummaryDTO workerDTO = new WorkerSummaryDTO();
-        workerDTO.setId(request.getWorker().getId());
-        workerDTO.setName(request.getWorker().getUser().getName());
-        workerDTO.setRating(request.getWorker().getRating());
-        workerDTO.setAvailable(request.getWorker().getAvailable());
+        workerDTO.setId(worker.getId());
+        workerDTO.setName(worker.getUser().getName());
+        workerDTO.setRating(worker.getRating());
+        workerDTO.setAvailable(worker.getAvailable());
 
         WorkRequestResponseDTO dto = new WorkRequestResponseDTO();
         dto.setRequestId(request.getId());
         dto.setStatus(request.getStatus().name());
-        dto.setServiceName(request.getServiceCategory().getName());
+        dto.setServiceName(
+            request.getServiceCategory() != null
+                ? request.getServiceCategory().getName()
+                : "UNKNOWN"
+        );
         dto.setRequestedAt(request.getRequestedAt());
         dto.setCustomer(customerDTO);
         dto.setWorker(workerDTO);
@@ -246,16 +244,29 @@ public class WorkRequestService {
         dto.setRequestId(request.getId());
         dto.setStatus(request.getStatus().name());
         dto.setRequestedAt(request.getRequestedAt());
-        dto.setServiceName(request.getServiceCategory().getName());
+
+        dto.setServiceName(
+                request.getServiceCategory() != null
+                        ? request.getServiceCategory().getName()
+                        : "UNKNOWN"
+        );
 
         paymentRepository.findByWorkRequestId(request.getId())
-                .ifPresent(payment -> {
-                    PaymentSummaryDTO p = new PaymentSummaryDTO();
-                    p.setPaymentId(payment.getId());
-                    p.setAmount(payment.getAmount());
-                    p.setStatus(payment.getStatus());
-                    p.setPricingType(payment.getPricingType());
-                    dto.setPayment(p);
+                .ifPresent(p -> {
+                    PaymentSummaryDTO ps = new PaymentSummaryDTO();
+                    ps.setPaymentId(p.getId());
+                    ps.setAmount(p.getAmount());
+                    ps.setStatus(p.getStatus());
+                    ps.setPricingType(p.getPricingType());
+                    dto.setPayment(ps);
+                });
+
+        feedbackRepository.findByWorkRequest(request)
+                .ifPresent(f -> {
+                    FeedbackSummaryDTO fs = new FeedbackSummaryDTO();
+                    fs.setRating(f.getRating());
+                    fs.setComment(f.getComment());
+                    dto.setFeedback(fs);
                 });
 
         return dto;

@@ -4,6 +4,7 @@ import com.bluecollar.management.dto.LoginRequest;
 import com.bluecollar.management.dto.LoginResponse;
 import com.bluecollar.management.dto.RegisterRequest;
 import com.bluecollar.management.entity.User;
+import com.bluecollar.management.security.jwt.JwtUtil;
 import com.bluecollar.management.service.UserService;
 
 import org.springframework.http.ResponseEntity;
@@ -14,9 +15,11 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
+    private final JwtUtil jwtUtil;
 
-    public AuthController(UserService userService) {
+    public AuthController(UserService userService, JwtUtil jwtUtil) {
         this.userService = userService;
+        this.jwtUtil = jwtUtil;
     }
 
     @PostMapping("/register")
@@ -30,14 +33,19 @@ public class AuthController {
 
         User user = userService.login(request);
 
+        String token = jwtUtil.generateToken(
+                user.getId(),
+                user.getRole().name()
+        );
+
         LoginResponse response = new LoginResponse();
         response.setUserId(user.getId());
         response.setName(user.getName());
         response.setEmail(user.getEmail());
         response.setRole(user.getRole().name());
+        response.setToken(token);
         response.setMessage("Login successful");
 
         return ResponseEntity.ok(response);
     }
 }
-//gg

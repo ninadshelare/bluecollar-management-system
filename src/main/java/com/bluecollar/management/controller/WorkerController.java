@@ -6,6 +6,8 @@ import com.bluecollar.management.dto.WorkerProfileRequestDTO;
 import com.bluecollar.management.dto.WorkerSearchResponseDTO;
 import com.bluecollar.management.service.WorkerProfileService;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/api/workers")
 public class WorkerController {
@@ -18,10 +20,11 @@ public class WorkerController {
 
     @PostMapping("/profile")
     public WorkerSearchResponseDTO createProfile(
-            @RequestParam Long userId,   // TEMP until JWT
-            @RequestBody WorkerProfileRequestDTO request) {
+            HttpServletRequest request,
+            @RequestBody WorkerProfileRequestDTO dto) {
 
-        return workerProfileService.createProfile(userId, request);
+        Long userId = ((Number) request.getAttribute("userId")).longValue();
+        return workerProfileService.createProfile(userId, dto);
     }
 
     @PutMapping("/profile/{workerId}")
