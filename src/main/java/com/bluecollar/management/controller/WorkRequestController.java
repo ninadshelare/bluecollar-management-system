@@ -9,6 +9,8 @@ import com.bluecollar.management.dto.WorkRequestResponseDTO;
 import com.bluecollar.management.dto.CustomerWorkRequestResponseDTO;
 import com.bluecollar.management.service.WorkRequestService;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/api/work-requests")
 public class WorkRequestController {
@@ -21,9 +23,10 @@ public class WorkRequestController {
 
     @PostMapping("/create")
     public WorkRequestResponseDTO createRequest(
-            @RequestParam Long customerId,
+            HttpServletRequest request,
             @RequestParam Long workerId) {
 
+        Long customerId = ((Number) request.getAttribute("userId")).longValue();
         return workRequestService.createWorkRequest(customerId, workerId);
     }
 
@@ -50,10 +53,11 @@ public class WorkRequestController {
         return workRequestService.getRequestsForWorker(workerId);
     }
 
-    @GetMapping("/customer/{userId}")
+    @GetMapping("/customer")
     public List<CustomerWorkRequestResponseDTO> getCustomerRequests(
-            @PathVariable Long userId) {
+            HttpServletRequest request) {
 
-        return workRequestService.getRequestsForCustomer(userId);
+        Long customerId = ((Number) request.getAttribute("userId")).longValue();
+        return workRequestService.getRequestsForCustomer(customerId);
     }
 }
